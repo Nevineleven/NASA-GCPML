@@ -1,0 +1,51 @@
+class Eval:
+    def __init__(self, pred, gold):
+        self.pred = pred
+        self.gold = gold
+        
+    def Accuracy(self):
+        return np.sum(np.equal(self.pred, self.gold)) / float(len(self.gold))
+
+class NaiveBayes:
+    #initialize the data, the prior, the log likelihood as well as the calcularions needed to calculate
+    #SGD in the Train and Predict portion of the code
+    def __init__(self, X, Y, ALPHA=1.0):
+        self.X = X
+        self.Y = Y
+        self.prior = {}
+        self.likelihood = {}
+        self.alpha = ALPHA
+        self.Train(X,Y)
+
+    def Train(self, X, Y):
+        #calculate the log priors for the positive and negative data sets
+        self.prior['pos'] = np.log(sum(1 for label in Y if label == 1) / (Y.size))
+        self.prior['neg'] = np.log(sum(1 for label in Y if label == -1) / (Y.size))
+        word_counts_neg = np.array(X[Y == -1,:].sum(axis=0)).flatten()
+        word_counts_pos = np.array(X[Y == 1,:].sum(axis=0)).flatten()
+        #calculate the log likelihoods of the positive and negative data sets
+        self.likelihood['pos'] = np.log((word_counts_pos+self.alpha)/(sum(word_counts_pos)+self.alpha))
+        self.likelihood['neg'] = np.log((word_counts_neg+self.alpha)/(sum(word_counts_neg)+self.alpha))
+        return
+
+    def Predict(self, X):
+        #the array that characterizes whether the given review is a positive one using our code
+        result = []
+        for x in X:
+          posprob = self.prior['pos']
+          negprob = self.prior['neg']
+          posprob = posprob + sum(self.likelihood['pos'][x.indices])
+          negprob = negprob + sum(self.likelihood['neg'][x.indices])
+          #determines whether the text has a higher chance of being positive or negative
+          if (posprob > negprob):
+            result.append(1)
+          else:
+            result.append(-1)
+        return result
+
+    #used to evaluate whether how acccurately we can predict with the test data set
+    #after we have finished training the model 
+    def Eval(self, X_test, Y_test):
+        Y_pred = self.Predict(X_test)
+        ev = Eval(Y_pred, Y_test)
+        return ev.Accuracy()
