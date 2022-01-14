@@ -1,0 +1,99 @@
+import gc
+import torch.nn as nn
+
+def Eval(bert_model, dataloader):
+
+    model.eval()
+    predictions, true_labels = [], []
+    num_correct = 0
+
+    for step, batch in enumerate(tqdm(dataloader)):
+      #TODO: Implement BERT evaluation.
+      with torch.no_grad():
+        output = bert_model(batch[0].cuda(),
+                            attention_mask = batch[1].cuda())
+      
+      #pred = torch.flatten(torch.nn.functional.softmax(logits, dim=1).topk(1, dim=1).indices).tolist()
+
+      torch.cuda.empty_cache()
+      gc.collect()
+
+      predictions.extend(torch.flatten(nn.functional.softmax(output.logits, dim=1).topk(1, dim=1).indices).tolist())
+      true_labels.extend(torch.flatten(batch[2]).tolist())
+
+    for i in range(len(predictions)):
+      if predictions[i] == true_labels[i]:
+        num_correct = num_correct + 1
+    print(predictions)
+    print(true_labels)
+    print(0)
+    print(num_correct)
+    print(1)
+    print(len(true_labels))
+    print(2)
+    print("\nAccuracy: %s" % (float(num_correct) / float(len(true_labels))))
+
+import gc
+
+
+def Train(bert_model, train_data, lr, n_epoch, dev_data):
+    torch.cuda.empty_cache()
+    print("Start Training!")
+    optimizer = AdamW(bert_model.parameters(), lr=lr)
+
+    # TRAIN loop
+
+    for epoch in range(n_epoch):  
+
+        print(f"\nEpoch {epoch}")
+      
+        bert_model.train()
+        tr_loss = 0
+        nb_tr_examples, nb_tr_steps = 0, 0
+
+        for step, batch in enumerate(tqdm(train_data)):
+
+            #TODO: Implement BERT fine-tuning.
+            bert_model.zero_grad()
+            optimizer.zero_grad()
+
+            #batch = {k: v.to(device) for k, v in batch.items()}
+            #outputs = model(**batch)
+            #loss = outputs.loss
+            output = bert_model(batch[0].cuda(), 
+                                token_type_ids=None,
+                                attention_mask = batch[1].cuda(), 
+                                labels = batch[2].cuda())
+            output.loss.backward()
+            #optimizer.zero_grad()
+            optimizer.step()
+
+            tr_loss += float(output.loss)
+            nb_tr_steps += 1
+
+            torch.cuda.empty_cache()
+            gc.collect()
+
+        # print train loss per epoch
+        print("Train loss on epoch {}: {}\n".format(epoch, tr_loss / nb_tr_steps))
+
+        # Dev set evaluation
+        print("Evaluate on the dev set:")
+        Eval(bert_model, dev_data)
+
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+n_gpu = torch.cuda.device_count()
+torch.no_grad()
+
+learning_rate = 2e-5
+num_epoch = 1
+
+model = AutoModelForSequenceClassification.from_pretrained(model_name)
+if n_gpu > 1:
+    model.to(device)
+    model = torch.nn.DataParallel(model)
+else:
+    model.cuda()
+
+Train(model, train_dataloader, learning_rate, num_epoch, dev_dataloader)
