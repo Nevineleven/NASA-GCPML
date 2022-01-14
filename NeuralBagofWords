@@ -1,0 +1,60 @@
+class NBOW(nn.Module):
+    def __init__(self, VOCAB_SIZE, DIM_EMB=300, NUM_CLASSES=2):
+        super(NBOW, self).__init__()
+        self.NUM_CLASSES=NUM_CLASSES
+        self.V = nn.Embedding(VOCAB_SIZE, DIM_EMB).cuda()
+        self.g = nn.ReLU().cuda()
+        self.W = nn.Linear(DIM_EMB, NUM_CLASSES).cuda()
+        self.logSoftmax = nn.LogSoftmax(dim=0).cuda()
+
+    def forward(self, X):
+        return self.logSoftmax(self.W(self.g(torch.mean(self.V(X.cuda()),0))))
+
+def EvalNet(data, net):
+    num_correct = 0
+    Y = (data.Y + 1.0) / 2.0
+    X = data.XwordList
+    for i in range(len(X)):
+        logProbs = net.forward(X[i])
+        pred = torch.argmax(logProbs)
+        if pred == Y[i]:
+            num_correct += 1
+    print("Accuracy: %s" % (float(num_correct) / float(len(X))))
+
+def SavePredictions(data, outFile, net):
+    fOut = open(outFile, 'w')
+    for i in range(len(data.XwordList)):
+        logProbs = net.forward(data.XwordList[i])
+        pred = torch.argmax(logProbs)
+        fOut.write(f"{data.XfileList[i]}\t{pred}\n")
+
+def Train(net, X, Y, n_iter, dev):
+    print("Start Training!")
+    #TODO: initialize optimizer.
+    optimizer = optim.Adam(net.parameters(), lr=0.01)
+
+    num_classes = len(set(Y))
+
+    for epoch in range(n_iter):
+        num_correct = 0
+        total_loss = 0.0
+        net.train()   #Put the network into training mode
+        for i in tqdm.notebook.tqdm(range(len(X))):
+            #compute gradients and update loss
+            net.zero_grad()
+            optimizer.zero_grad()
+            
+            logProbs = net.forward(X[i].cuda())
+            y_onehot = torch.zeros(2).cuda()
+            y_onehot[Y.astype(np.int)[i]] = 1
+            loss = torch.neg(logProbs).dot(y_onehot.cuda())
+            total_loss += loss
+            loss.backward()
+            optimizer.step()
+
+        net.eval()    #Switch to eval mode
+        print(f"loss on epoch {epoch} = {total_loss}")
+        EvalNet(dev, net)
+
+nbow = NBOW(train.vocab.GetVocabSize()).cuda()
+Train(nbow, train.XwordList, (train.Y + 1.0) / 2.0, 10, dev)
